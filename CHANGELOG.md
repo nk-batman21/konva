@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 10.9.1 (2026-10-31)
+
+- Fixed the fallback for CSS `blur()`, used where the canvas has no `filter` (Safari) and for CSS strings mixed with function filters: it blurred about 4× less than the native filter and did not fade the edges of a tightly cached node. It now closely matches the native blur
+- Fixed the fallbacks for CSS `blur()`, `brightness()` and `contrast()` doing nothing in a `konva/lib/Core` build that imports the filters. Without the import they now warn
+- Fixed `Emboss` lighting the opposite side for top and bottom directions, including the default `'top-left'`. An unknown `embossDirection` now warns. Thanks [@nk-batman21](https://github.com/nk-batman21)
+- Fixed the underline and line-through of `Text` and `TextPath`: they use the fill the glyphs are drawn with, including gradient and pattern fills, the stroke for stroke-only text, and nothing when the glyphs paint nothing. Thanks [@nk-batman21](https://github.com/nk-batman21)
+- Fixed `TextPath` gradients and patterns restarting at every glyph instead of spanning the whole shape
+- Fixed `TextPath` bounds leaving out the underline, so `cache()`, `toCanvas()` and `Transformer` cut it off
+- Fixed a negative `cornerRadius` of `RegularPolygon` throwing and aborting the layer draw. Thanks [@Enesuygurs](https://github.com/Enesuygurs)
+- Fixed `cancelBubble` set in a delegated handler (`layer.on('click', '.item', fn)`) not stopping the event from bubbling. Thanks [@nk-batman21](https://github.com/nk-batman21)
+
 ## 10.9.0 (2026-10-14)
 
 - Added `Konva.beginUpdateBatch()`: defers automatic `Transformer` updates across many synchronous node changes and runs them once when the returned function is called. A React commit or an undo that touches N selected nodes costs one update instead of N

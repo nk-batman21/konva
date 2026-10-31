@@ -1,7 +1,7 @@
 # Review tasks
 
 The audit of `73fc720c` (2026-09-13) is closed. Every task it raised is either fixed
-or declined below. Fixed items are in the `## Unreleased` section of `CHANGELOG.md`.
+or declined below. Fixed items are listed in `CHANGELOG.md`.
 
 ## Declined
 
