@@ -1,4 +1,5 @@
 import type { Filter } from '../Node.ts';
+import { _registerCSSFilterFallback } from '../Node.ts';
 // The shared brightness accessor is registered by Brighten.
 import './Brighten.ts';
 
@@ -14,11 +15,18 @@ import './Brighten.ts';
  * node.brightness(1.5); // 50% brighter (CSS-compatible)
  */
 export const Brightness: Filter = function (imageData) {
-  const brightness =
-      this.attrs.brightness === undefined ? 1 : this.brightness(),
-    data = imageData.data,
-    len = data.length;
+  brighten(
+    imageData,
+    this.attrs.brightness === undefined ? 1 : this.brightness()
+  );
+};
 
+// CSS brightness(v) is the same multiplier.
+_registerCSSFilterFallback('brightness', brighten);
+
+function brighten(imageData: ImageData, brightness: number) {
+  const data = imageData.data,
+    len = data.length;
   for (let i = 0; i < len; i += 4) {
     // red
     data[i] = Math.min(255, data[i] * brightness);
@@ -27,4 +35,4 @@ export const Brightness: Filter = function (imageData) {
     // blue
     data[i + 2] = Math.min(255, data[i + 2] * brightness);
   }
-};
+}

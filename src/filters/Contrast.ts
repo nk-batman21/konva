@@ -1,6 +1,6 @@
 import { Factory } from '../Factory.ts';
 import type { Filter } from '../Node.ts';
-import { Node } from '../Node.ts';
+import { Node, _registerCSSFilterFallback } from '../Node.ts';
 import { getNumberValidator } from '../Validators.ts';
 /**
  * Contrast Filter.
@@ -14,8 +14,13 @@ import { getNumberValidator } from '../Validators.ts';
  */
 
 export const Contrast: Filter = function (imageData) {
-  const adjust = Math.pow((this.contrast() + 100) / 100, 2);
+  applyContrast(imageData, Math.pow((this.contrast() + 100) / 100, 2));
+};
 
+// CSS contrast(v) scales the distance from mid-grey by v.
+_registerCSSFilterFallback('contrast', applyContrast);
+
+function applyContrast(imageData: ImageData, adjust: number) {
   const data = imageData.data,
     nPixels = data.length;
   let red = 150,
@@ -56,7 +61,7 @@ export const Contrast: Filter = function (imageData) {
     data[i + 1] = green;
     data[i + 2] = blue;
   }
-};
+}
 
 /**
  * get/set filter contrast.  The contrast is a number between -100 and 100.

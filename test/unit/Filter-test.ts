@@ -33,51 +33,81 @@ describe('Filter', function () {
     Konva.pixelRatio = 1;
   });
 
-  // Blur filter comparison
-  it('native CSS blur vs Konva blur comparison', function (done) {
-    loadImage('darth-vader.jpg', (imageObj) => {
-      const oldPixelRatio = Konva.pixelRatio;
-      Konva.pixelRatio = 1;
-      var stage = addStage();
+  // CDF of the standard normal distribution (Abramowitz and Stegun 7.1.26)
+  function normalCDF(x: number) {
+    const t = 1 / (1 + (0.3275911 * Math.abs(x)) / Math.SQRT2);
+    const erf =
+      1 -
+      t *
+        (0.254829592 +
+          t *
+            (-0.284496736 +
+              t * (1.421413741 + t * (-1.453152027 + t * 1.061405429)))) *
+        Math.exp((-x * x) / 2);
+    return x >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
+  }
 
-      var layer1 = new Konva.Layer();
-      var layer2 = new Konva.Layer();
-
-      // Native CSS filter image
-      var imageCSS = new Konva.Image({
-        image: imageObj,
-        draggable: true,
-      });
-
-      // Konva function filter image
-      var imageKonva = new Konva.Image({
-        image: imageObj,
-        draggable: true,
-      });
-
-      layer1.add(imageCSS);
-      layer2.add(imageKonva);
-      stage.add(layer1);
-      stage.add(layer2);
-
-      // Apply CSS filter
-      imageCSS.cache();
-      imageCSS.filters(['blur(10px)']);
-
-      // Apply equivalent Konva filter (CSS 10px = Konva 5 due to scaling)
-      imageKonva.cache();
-      imageKonva.filters([Konva.Filters.Blur]);
-      imageKonva.blurRadius(5); // 10px * 0.5 scaling factor
-
-      stage.draw();
-
-      Konva.pixelRatio = oldPixelRatio;
-      // Compare the results
-      compareLayers(layer1, layer2, 150, 150);
-
-      done();
+  // Largest alpha difference from a Gaussian of deviation sigma, across the
+  // left edge of a blurred black rect. The cache leaves `pad` around the rect,
+  // the checked row is the middle one.
+  function gaussianEdgeError(filters, sigma: number, pad: number) {
+    const size = 6 * sigma;
+    const rect = new Konva.Rect({
+      x: pad,
+      y: pad,
+      width: size,
+      height: size,
+      fill: 'black',
+      filters,
     });
-  });
+    try {
+      const box = { width: size + 2 * pad, height: size + 2 * pad };
+      rect.cache({ x: -pad, y: -pad, ...box, pixelRatio: 1 });
+      const width = pad + 3 * sigma;
+      const row = rect
+        .toCanvas({ x: 0, y: 0, ...box, pixelRatio: 1 })
+        .getContext('2d')!
+        .getImageData(0, pad + 3 * sigma, width, 1).data;
+      let error = 0;
+      for (let x = 0; x < width; x++) {
+        const expected = normalCDF((x + 0.5 - pad) / sigma);
+        error = Math.max(error, Math.abs(row[x * 4 + 3] / 255 - expected));
+      }
+      return error;
+    } finally {
+      rect.destroy();
+    }
+  }
+
+  // A function filter in the chain forces the fallback for the CSS strings,
+  // even where the 2D context has a native `filter`.
+  for (const [name, rest] of [
+    ['alone', []],
+    ['in the fallback', [function () {}]],
+  ] as const) {
+    // skia-canvas (3.0.8 to 4.0.0) blurs drawImage() with half the deviation
+    // of ctx.filter, and the native path draws the cache with drawImage().
+    const nativeSkia = () =>
+      !rest.length && Konva._renderBackend === 'skia-canvas';
+
+    it(`CSS blur(σ) is a Gaussian of deviation σ ${name}`, function () {
+      if (nativeSkia()) this.skip();
+      // 100px is past the 180 radius limit of Konva.Filters.Blur
+      for (const sigma of [2, 8, 100]) {
+        const error = gaussianEdgeError(
+          [`blur(${sigma}px)`, ...rest],
+          sigma,
+          3 * sigma
+        );
+        assert.isBelow(error, 0.045, `blur(${sigma}px)`);
+      }
+    });
+
+    it(`CSS blur fades a tightly cached node at its edges ${name}`, function () {
+      if (nativeSkia()) this.skip();
+      assert.isBelow(gaussianEdgeError([`blur(8px)`, ...rest], 8, 0), 0.045);
+    });
+  }
 
   // Brightness filter comparison
   it('native CSS brightness vs Konva brightness comparison', function (done) {
@@ -351,7 +381,7 @@ describe('Filter', function () {
         Konva.Filters.Contrast,
         Konva.Filters.Sepia,
       ]);
-      imageKonva.blurRadius(20); // 20px * 0.5 scaling factor
+      imageKonva.blurRadius(20); // CSS blur(10px) is a blur radius of 20
       imageKonva.brightness(1.2); // CSS 1.2 = Konva 1.2 multiplier
       imageKonva.contrast(100 * (Math.sqrt(1.1) - 1)); // CSS 1.1 = Konva 110 percentage
 

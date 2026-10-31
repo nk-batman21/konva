@@ -32,12 +32,26 @@ const rect = new Rect({
 });
 rect.brightness(1.5);
 rect.cache({ pixelRatio: 1 });
-equal(
+const firstPixel = () =>
   Array.from(
     rect.toCanvas().getContext('2d').getImageData(0, 0, 1, 1).data
-  ).join(','),
+  ).join(',');
+equal(firstPixel(), '192,96,48,255', 'Brightness works in a minimal import');
+// node-canvas has no ctx.filter, so CSS strings take the fallback
+rect.filters(['brightness(150%)']);
+equal(
+  firstPixel(),
   '192,96,48,255',
-  'Brightness works in a minimal import'
+  'CSS brightness falls back to the imported filter'
+);
+let warning = '';
+Konva.Util.warn = (message) => (warning = message);
+rect.filters(['blur(1px)']);
+rect.toCanvas();
+equal(
+  warning.includes('"blur"'),
+  true,
+  'CSS blur without its filter module warns'
 );
 rect.destroy();
 
